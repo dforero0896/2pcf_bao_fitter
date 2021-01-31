@@ -392,11 +392,14 @@ if __name__ == '__main__':
     s_obs, xi_obs = np.loadtxt(args.ifile, usecols=(0,1), unpack=True)
 
     # Initialize fitter
-    bao_fitter = BAO_Fitter(plin_fn = args.plin, plin_nw_fn=args.pnw, pnw_temp_fn = args.ptemp, prior_params = ((0.8, 1.2), (0, 25), (0,30)), prior_types=('flat', 'flat', 'flat'), backend = 'multinest')
+    bao_fitter = BAO_Fitter(plin_fn = args.plin, plin_nw_fn=args.pnw, pnw_temp_fn = args.ptemp, 
+                            prior_params = ((0.8, 1.2), (0, 25), (0,30)), 
+                            prior_types=('flat', 'flat', 'flat'), 
+                            backend = 'zeus')
     # Initialize (compute) covariance matrix if necessary, else set attributes with an appropriate one
     bao_fitter.compute_covariance(mocks)
 
-    best_params = bao_fitter.fit_analyze(xi_obs, s_obs, nsteps=10, resume=True)
+    best_params = bao_fitter.fit_analyze(xi_obs, s_obs, nsteps=500, resume=True)
     # Zeus backend: 4m52s 500 steps
     # Zeus backend: 17m31s 2000 steps
     # Multinest backend 3m22s
