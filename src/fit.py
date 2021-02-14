@@ -8,10 +8,11 @@ from scipy.interpolate import interp1d
 import pymultinest as pmn
 import hankl
 import os
-from mpi4py import MPI
 import matplotlib as mpl
 mpl.use("Agg")
 import matplotlib.pyplot as plt
+from mpi4py import MPI
+
 class BAO_Fitter():
     def __init__(self, plin_fn, plin_nw_fn, pnw_temp_fn=None, pratio=1, a_smooth=1,
                 k_norm=8e-3, smin=60, smax=150, sbin_size=5, kmin = 2.5e-3, kmax = 600, num_lnk_bin=2048,
@@ -36,7 +37,6 @@ class BAO_Fitter():
         self.plin_nw = self.get_pk_array(plin_nw_fn)
         self.plin = self.get_pk_array(plin_fn)
         if pnw_temp_fn is not None:
-            
             self.pnw_temp = self.get_pk_array(pnw_temp_fn)
             self.pratio = self.pnw_temp / self.plin_nw
         else:
@@ -71,20 +71,14 @@ class BAO_Fitter():
         
 
     def get_pk_array(self, filename, usecols=(0,1)):
-        print(f"==> Reading power spectum from {filename}", flush=True)
-        data = pd.read_csv(filename, delim_whitespace=True, usecols=usecols, names=['k', 'pk'], comment='#')
-        #mask = (data.k > self.kmin) & (data.k < self.kmax)
-        #data = data.loc[mask]
-        log_pk_interp = interp1d(np.log(data['k'].values), np.log(data['pk'].values), kind='linear', bounds_error=False, fill_value='extrapolate')
-        print(data['k'].values[-1])
-        toret =np.exp(log_pk_interp(np.log(self.k)))  
-        return toret 
+        data = pd.read_csv(filename, delim_whitespace=True, usecols=usecols, names=['k', 'pk'])
+        log_pk_interp = interp1d(np.log(data['k'].values), np.log(data['pk'].values), kind='cubic', bounds_error=False, fill_value='extrapolate')
+        return np.exp(log_pk_interp(np.log(self.k)))
 
 
 
     def compute_covariance(self, mocks, fit_range_mask=None, usecols=(1,)):
         if isinstance(mocks, str):
-            print(f"==> Computing covariance from list.", flush=True)
             mock_list = mocks
             mocks = []
             with open(mock_list, 'r') as f:
@@ -92,9 +86,7 @@ class BAO_Fitter():
                     fname = line.rstrip("\n")
                     if fname =='': continue
                     mocks.append(fname)
-        else:
-            print(f"==> Assuming a list of filenames of mocks was passed.", flush=True)
-
+        
         if self.fit_range_mask is None:
             s = pd.read_csv(mocks[0], delim_whitespace=True, engine='c', names = ['s'], usecols = (0,)).values
             self.fit_range_mask = np.squeeze((s > self.smin) & (s < self.smax))
@@ -294,7 +286,7 @@ class BAO_Fitter():
             stats = res.get_stats()['marginals']
             
             p = pmn.PlotMarginalModes(res)
-            f = plt.figure(figsize=(5*self.nparams, 5*self.nparams))
+            plt.figure(figsize=(5*self.nparams, 5*self.nparams))
             olist = []
             for i in range(self.nparams):
                 median = stats[i]['median']
@@ -317,10 +309,8 @@ class BAO_Fitter():
                     plt.xlabel(self.parameters[i])
                     plt.ylabel(self.parameters[j])
             self.write_line(outbase+"multinest_map.txt", np.array(olist))
-            plt.savefig(f"{outbase}multinest_marginals_post.pdf") #, bbox_inches='tight')
-            print(f"==> Saved marginals plots to {outbase}multinest_marginals_post.pdf")
-            plt.close(f)
-            return olist #returnin MAP parameters
+            plt.savefig(f"{outbase}multinest_marginals_post.png") #, bbox_inches='tight')
+            return bestpar
 
         else: 
             raise NotImplementedError
@@ -389,9 +379,7 @@ if __name__ == '__main__':
     import argparse
     import os
     import glob
-    import matplotlib as mpl
-    mpl.use("Agg")
-    import matplotlib.pyplot as plt
+    
     parser = argparse.ArgumentParser()
     parser.add_argument('-plin', '--linear-pk', dest='plin', type=str, default='data/Albert_Plin.dat')
     parser.add_argument('-pnw', '--non-wiggle-pk', dest='pnw', type=str, default='data/Albert_Pnw.dat')
